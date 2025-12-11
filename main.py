@@ -1,35 +1,50 @@
-# main.py
-import asyncio
-from aiohttp import web
-from pyppeteer import launch
+from flask import Flask, request, send_file, jsonify
+from weasyprint import HTML, CSS
+import io
 
-async def generate_pdf(html_content: str):
-    # Remplace ce chemin par le chemin exact de ton Chrome
-    chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+app = Flask(__name__)
 
-    browser = await launch(
-        executablePath=chrome_path,
-        headless=True,
-        args=['--no-sandbox', '--disable-dev-shm-usage']
-    )
-    page = await browser.newPage()
-    await page.setContent(html_content)
-    pdf_bytes = await page.pdf({'format': 'A4'})
-    await browser.close()
-    return pdf_bytes
+# Version Tailwind compilé (mode production, v3.4)
+TAILWIND_CSS = """
+/* Exemple simplifié, tu peux remplacer par le CSS complet compilé de Tailwind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-async def handle_generate(request):
-    data = await request.json()
-    html = f"""
-    <h1>Facture {data.get('numero')}</h1>
-    <p>Client: {data.get('client')}</p>
-    <p>Total: {data.get('total')}</p>
-    """
-    pdf_bytes = await generate_pdf(html)
-    return web.Response(body=pdf_bytes, content_type='application/pdf')
+/* Exemple inline pour PDF */
+body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; }
+h1 { @apply text-2xl font-bold text-blue-600; }
+p { @apply text-base text-gray-800; }
+table { @apply w-full border border-gray-300; border-collapse: collapse; }
+th, td { @apply border border-gray-300 p-2 text-left; }
+"""
 
-app = web.Application()
-app.router.add_post('/generate', handle_generate)
+@app.route('/generate-pdf', methods=['POST'])
+def generate_pdf():
+    data = request.get_json()
+    html_content = data.get('html')
+
+    if not html_content:
+        return jsonify({'error': 'Le contenu HTML est requis'}), 400
+
+    pdf_file = io.BytesIO()
+
+    try:
+        HTML(string=html_content).write_pdf(
+            pdf_file,
+            stylesheets=[CSS(string=TAILWIND_CSS)]
+        )
+        pdf_file.seek(0)
+        return send_file(
+            pdf_file,
+            mimetype='application/pdf',
+            download_name='facture.pdf'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
-    web.run_app(app, port=5001)
+    import os
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port)

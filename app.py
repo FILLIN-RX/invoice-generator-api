@@ -21,3 +21,6 @@ def generate_pdf(payload: PdfPayload):
             "Content-Disposition": "inline; filename=facture.pdf"
         }
     )
+@app.get("/healthz")
+def healthcheck():
+    return {"status": "ok"}

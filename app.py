@@ -13,20 +13,25 @@ class PdfPayload(BaseModel):
 
 @app.post("/pdf")
 def generate_pdf(payload: PdfPayload):
-    logger.info(f"Received PDF generation request. HTML size: {len(payload.html)} chars")
-    pdf_bytes = HTML(
-        string=payload.html,
-        base_url="."
-    ).write_pdf()
+    try:
+        logger.info(f"Received PDF generation request. HTML size: {len(payload.html)} chars")
+        pdf_bytes = HTML(
+            string=payload.html,
+            base_url="."
+        ).write_pdf()
+        logger.info(f"PDF generated successfully. Size: {len(pdf_bytes)} bytes")
+        return Response(
+            pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "inline; filename=facture.pdf"}
+        )
+    except Exception as e:
+        logger.error("PDF generation failed", exc_info=e)
+        return Response(
+            f"PDF generation failed: {str(e)}",
+            status_code=500
+        )
 
-    logger.info(f"PDF generated successfully. Size: {len(pdf_bytes)} bytes")
-    return Response(
-        pdf_bytes,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": "inline; filename=facture.pdf"
-        }
-    )
 @app.get("/healthz")
 def healthcheck():
     return {"status": "ok"}
